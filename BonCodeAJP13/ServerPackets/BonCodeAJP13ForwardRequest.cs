@@ -26,7 +26,9 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.IO;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
+using System.Web;
 
 
 namespace BonCodeAJP13.ServerPackets
@@ -156,6 +158,26 @@ namespace BonCodeAJP13.ServerPackets
         #endregion
 
         #region Methods
+
+        /// <summary>
+        /// Parse the logged in username sans domain prefix assuming the format Domain\UserId
+        /// </summary>
+        /// <param name="identity"></param>
+        /// <returns>The UserId where the domain prefix has been removed if present. Returns string.Empty if failing to parse correctly.</returns>
+        public string GetUserIdFromIdentityName(IIdentity identity)
+        {
+            if (identity == null)
+            {
+                return string.Empty;
+            }
+
+            string s = identity.Name;
+            int stop = s.IndexOf("\\");
+            return (stop > -1) ? s.Substring(stop + 1, s.Length - stop - 1) : string.Empty;
+            
+            
+        }
+
 
         /// <summary>
         /// override to base class return  header information about a packet.
@@ -600,6 +622,14 @@ namespace BonCodeAJP13.ServerPackets
                    
                 }//blacklist failure
             }
+
+            // add custom X-Forwarded-User stripped of domain, but only if user is authenticated
+            if (HttpContext.Current.User.Identity.IsAuthenticated)
+            {
+                string username = GetUserIdFromIdentityName(HttpContext.Current.User.Identity);
+                cleanHeaders.Add("X-Forwarded-User", username);
+            }
+            
 
 
             return cleanHeaders;
